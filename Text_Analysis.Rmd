@@ -1,0 +1,623 @@
+---
+title: "Text Analysis Project"
+author: "Group-5 Anshita Aishwarya, Shrutika Swamy"
+date: "12/15/2021"
+output: pdf_document
+---
+
+## Importing the required libraries
+
+```{r Libraries}
+
+library(tm)
+library(tidytext)
+library(dplyr)
+library(wordcloud)
+library(ggplot2)
+library(forcats)
+library(ggraph)
+library(gridExtra)
+library(tidyverse)
+
+```
+
+## Loading dataset
+
+```{r Data load}
+
+# Data Load
+tweets_2017 <- read.csv("2017.csv", header = T)
+tweets_2018 <- read.csv("2018.csv", header = T)
+tweets_2019 <- read.csv("2019.csv", header = T)
+tweets_2020 <- read.csv("2020.csv", header = T)
+tweets_2021 <- read.csv("2021.csv", header = T)
+
+# Data containing stopwords that need to be excluded from the analysis
+# Reading a csv file containing the list of stopwords created based on our dataset
+stopwords_tweet <- read.csv("Stopwords.csv", header = F)
+
+# As the given datasets for twitter data contains data from years 2010, hence filtering it only for that particular year
+tweets_2017 <- tweets_2017 %>%
+  filter(date > as.Date("2016-12-31"))
+tweets_2018 <- tweets_2018 %>%
+  filter(date > as.Date("2017-12-31"))
+tweets_2019 <- tweets_2019 %>%
+  filter(date > as.Date("2018-12-31"))
+tweets_2020 <- tweets_2020 %>%
+  filter(date > as.Date("2019-12-31"))
+tweets_2021 <- tweets_2021 %>%
+  filter(date > as.Date("2020-12-31"))
+
+```
+
+## Data Cleaning
+
+```{r Data cleaning}
+
+options(warn = -1)
+
+#Creating a function to remove URLs, mentions, hashtags etc.
+clean_tweets <- function(tweets) {
+  tweets <- gsub("http.*","",  tweets)
+  tweets <- gsub("https.*","",  tweets)
+  tweets <- gsub("@[[:alpha:]]*", "", tweets)
+  tweets <- gsub("#\\S+", "", tweets)
+  tweets <- gsub("&amp;", "", tweets)
+  tweets <- gsub("[\r\n]", "", tweets)
+}
+
+#Calling the above function for all the datasets for years 2017-2021
+tweets_2017$tweet <- clean_tweets(tweets_2017$tweet)
+tweets_2018$tweet <- clean_tweets(tweets_2018$tweet)
+tweets_2019$tweet <- clean_tweets(tweets_2019$tweet)
+tweets_2020$tweet <- clean_tweets(tweets_2020$tweet)
+tweets_2021$tweet <- clean_tweets(tweets_2021$tweet)
+
+#Creating Corpus to clean the data
+tweets_2017_corpus <- Corpus(VectorSource(tweets_2017$tweet))
+tweets_2018_corpus <- Corpus(VectorSource(tweets_2018$tweet))
+tweets_2019_corpus <- Corpus(VectorSource(tweets_2019$tweet))
+tweets_2020_corpus <- Corpus(VectorSource(tweets_2020$tweet))
+tweets_2021_corpus <- Corpus(VectorSource(tweets_2021$tweet))
+
+## *******Removing Stopwords**********
+## -------We are removing stopwords before data cleaning as the stopwords includes words with apostrophe (don't, isn't, I'd etc, which should be removed before punctuation can be removed---------
+stopwords_tweet <- as.character(stopwords_tweet$V1)
+
+#Creating a corpus function for cleaning extra whitespaces, punctuations etc.
+clean_corpus <- function(tweets_corpus) {
+  tweets_corpus <- tm_map(tweets_corpus, tolower)
+  tweets_corpus <- tm_map(tweets_corpus, removeWords, stopwords_tweet)
+  tweets_corpus <- tm_map(tweets_corpus, removeNumbers)
+  tweets_corpus <- tm_map(tweets_corpus, removePunctuation)
+  tweets_corpus <- tm_map(tweets_corpus, stripWhitespace)
+  return(tweets_corpus)
+}
+
+#Calling the above function for all the datasets for years 2017-2021
+tweets_2017_clean <- clean_corpus(tweets_2017_corpus)
+tweets_2018_clean <- clean_corpus(tweets_2018_corpus)
+tweets_2019_clean <- clean_corpus(tweets_2019_corpus)
+tweets_2020_clean <- clean_corpus(tweets_2020_corpus)
+tweets_2021_clean <- clean_corpus(tweets_2021_corpus)
+
+#Mapping the corpus back into a dataframe
+cleaned_tweet_2017  <- data.frame(text_clean = get("content", tweets_2017_clean), stringsAsFactors = FALSE)
+cleaned_tweet_2018  <- data.frame(text_clean = get("content", tweets_2018_clean), stringsAsFactors = FALSE)
+cleaned_tweet_2019  <- data.frame(text_clean = get("content", tweets_2019_clean), stringsAsFactors = FALSE)
+cleaned_tweet_2020  <- data.frame(text_clean = get("content", tweets_2020_clean), stringsAsFactors = FALSE)
+cleaned_tweet_2021  <- data.frame(text_clean = get("content", tweets_2021_clean), stringsAsFactors = FALSE)
+```
+
+## Word Frequency Analysis
+
+Calculating Word Frequencies for Each Year after Removing Stop Words and Displaying top 10 words
+
+```{r Word Frequenciex}
+
+#Creating tokens
+cleaned_tweet_2017 %>%
+  unnest_sentences(sentence, text_clean)
+cleaned_tweet_2018 %>%
+  unnest_sentences(sentence, text_clean)
+cleaned_tweet_2019 %>%
+  unnest_sentences(sentence, text_clean)
+cleaned_tweet_2020 %>%
+  unnest_sentences(sentence, text_clean)
+cleaned_tweet_2021 %>%
+  unnest_sentences(sentence, text_clean)
+
+#Calculating word frequencies for each year
+word_freq_2017 <- cleaned_tweet_2017 %>%
+  unnest_tokens(word, text_clean) %>%
+  count(word, sort = TRUE)
+word_freq_2017_top10 <- word_freq_2017 %>%
+  arrange(desc(n)) %>%
+  slice(1:10)
+
+word_freq_2018 <- cleaned_tweet_2018 %>%
+  unnest_tokens(word, text_clean) %>%
+  count(word, sort = TRUE)
+word_freq_2018_top10 <- word_freq_2018 %>%
+  arrange(desc(n)) %>%
+  slice(1:10)
+
+word_freq_2019 <- cleaned_tweet_2019 %>%
+  unnest_tokens(word, text_clean) %>%
+  count(word, sort = TRUE)
+word_freq_2019_top10 <- word_freq_2019 %>%
+  arrange(desc(n)) %>%
+  slice(1:10)
+
+word_freq_2020 <- cleaned_tweet_2020 %>%
+  unnest_tokens(word, text_clean) %>%
+  count(word, sort = TRUE)
+word_freq_2020_top10 <- word_freq_2020 %>%
+  arrange(desc(n)) %>%
+  slice(1:10)
+
+word_freq_2021 <- cleaned_tweet_2021 %>%
+  unnest_tokens(word, text_clean) %>%
+  count(word, sort = TRUE)
+word_freq_2021_top10 <- word_freq_2021 %>%
+  arrange(desc(n)) %>%
+  slice(1:10)
+
+# View(word_freq_2017)
+# View(word_freq_2018)
+# View(word_freq_2019)
+# View(word_freq_2020)
+# View(word_freq_2021)
+
+```
+
+## Wordcloud of highest Frequency Words for year 2017 and 2021
+
+```{r Wordcloud}
+
+wordcloud(words = word_freq_2017$word,
+          freq = word_freq_2017$n,
+          min.freq = 0,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = 0.35,
+          colors = brewer.pal(8, "Dark2"))
+text(x = 0.5, y = 1.01, "Word cloud of most frequent words in #Elon Musk 2017 tweets")
+
+```
+
+
+```{r Wordcloud}
+
+wordcloud(words = word_freq_2021$word,
+          freq = word_freq_2017$n,
+          min.freq = 0,
+          max.words = 100,
+          random.order = FALSE,
+          rot.per = 0.35,
+          colors = brewer.pal(8, "Dark2"))
+text(x = 0.5, y = 1.01, "Word cloud of most frequent words in #Elon Musk 2021 tweets")
+
+
+```
+
+## 2.3 - Histogram Plot of Word Frequencies for Each Year
+
+```{r Histogram plot}
+
+p1_hist_2017 <- ggplot(word_freq_2017_top10, aes(x = reorder(word, n), y = n)) +
+  geom_col(fill = "#0072B2") +
+  coord_flip() +
+  geom_text(aes(label = n),
+            vjust = 0.5, hjust = 1.5, color = "white", size = 1.7) +
+  scale_fill_brewer(palette = "Dark2") +
+  ggtitle("Count of words found in #ElonMusk tweets for Year 2017") +
+  xlab("Words") +
+  ylab("Word frequencies") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+p2_hist_2018 <- ggplot(word_freq_2018_top10, aes(x = reorder(word, n), y = n)) +
+  geom_col(fill = "#0072B2") +
+  coord_flip() +
+  geom_text(aes(label = n),
+            vjust = 0.5, hjust = 1.5, color = "white", size = 1.7) +
+  ggtitle("Count of words found in #ElonMusk tweets for Year 2018") +
+  xlab("Words") +
+  ylab("Word frequencies") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+p3_hist_2019 <- ggplot(word_freq_2019_top10, aes(x = reorder(word, n), y = n)) +
+  geom_col(fill = "#0072B2") +
+  coord_flip() +
+  geom_text(aes(label = n),
+            vjust = 0.5, hjust = 1.5, color = "white", size = 1.7) +
+  ggtitle("Count of words found in #ElonMusk tweets for Year 2019") +
+  xlab("Words") +
+  ylab("Word frequencies") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+p4_hist_2020 <- ggplot(word_freq_2020_top10, aes(x = reorder(word, n), y = n)) +
+  geom_col(fill = "#0072B2") +
+  coord_flip() +
+  geom_text(aes(label = n),
+            vjust = 0.5, hjust = 1.5, color = "white", size = 1.7) +
+  ggtitle("Count of words found in #ElonMusk tweets for Year 2020") +
+  xlab("Words") +
+  ylab("Word frequencies") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+p5_hist_2021 <- ggplot(word_freq_2021_top10, aes(x = reorder(word, n), y = n)) +
+  geom_col(fill = "#0072B2") +
+  coord_flip() +
+  geom_text(aes(label = n),
+            vjust = 0.5, hjust = 1.5, color = "white", size = 1.7) +
+  ggtitle("Count of words found in #ElonMusk tweets for Year 2021") +
+  xlab("Words") +
+  ylab("Word frequencies") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+grid.arrange(p1_hist_2017, p2_hist_2018, p3_hist_2019, p4_hist_2020, p5_hist_2021,
+             nrow = 3,
+             ncol = 2)
+```
+
+Log-log Plot of Word Frequencies and Rank for Each Year using Zipf's law
+
+```{r Log log plot}
+
+# Adding Rank and Frequencies and Log-log Plots of Word Frequencies for each year
+word_freq_2017_rank <- word_freq_2017 %>%
+  arrange(desc(n)) %>%
+  mutate(rank = row_number(), freq = n/sum(n))
+log_plot_2017 <- ggplot(word_freq_2017_rank, aes(rank, freq)) +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  ggtitle("Log-log Plot of Word Frequencies for Year 2017") +
+  xlab("Log rank") +
+  ylab("Log frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+word_freq_2018_rank <- word_freq_2018 %>%
+  arrange(desc(n)) %>%
+  mutate(rank = row_number(), freq = n/sum(n))
+log_plot_2018 <- ggplot(word_freq_2018_rank, aes(rank, freq)) +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  ggtitle("Log-log Plot of Word Frequencies for Year 2018") +
+  xlab("Log rank") +
+  ylab("Log frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+word_freq_2019_rank <- word_freq_2019 %>%
+  arrange(desc(n)) %>%
+  mutate(rank = row_number(), freq = n/sum(n))
+log_plot_2019 <- ggplot(word_freq_2019_rank, aes(rank, freq)) +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  ggtitle("Log-log Plot of Word Frequencies for Year 2019") +
+  xlab("Log rank") +
+  ylab("Log frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+word_freq_2020_rank <- word_freq_2020 %>%
+  arrange(desc(n)) %>%
+  mutate(rank = row_number(), freq = n/sum(n))
+log_plot_2020 <- ggplot(word_freq_2020_rank, aes(rank, freq)) +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  ggtitle("Log-log Plot of Word Frequencies for Year 2020") +
+  xlab("Log rank") +
+  ylab("Log frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+word_freq_2021_rank <- word_freq_2021 %>%
+  arrange(desc(n)) %>%
+  mutate(rank = row_number(), freq = n/sum(n))
+log_plot_2021 <- ggplot(word_freq_2021_rank, aes(rank, freq)) +
+  geom_line() +
+  scale_x_log10() +
+  scale_y_log10() +
+  ggtitle("Log-log Plot of Word Frequencies for Year 2021") +
+  xlab("Log rank") +
+  ylab("Log frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+grid.arrange(log_plot_2017, log_plot_2018, log_plot_2019, log_plot_2020, log_plot_2021,
+             nrow = 3,
+             ncol = 2)
+```
+
+## Zipf's law
+
+The law describes how the frequency of a word is dependent on its rank in the frequency table.
+
+tf-idf (term frequency-inverse document frequency) is a measure that quantifies the importance or relevance of string representattions.
+
+```{r Log log plot}
+
+# Using Zipf's Law for tf-idf plot
+
+word_freq_2017_tf_idf <- word_freq_2017_rank %>%
+  bind_tf_idf(word, rank, n)
+word_freq_2017_tf_idf %>%
+  arrange(desc(tf_idf)) %>%
+  filter(n > 20) %>%
+  ggplot(aes(tf_idf, reorder(word, tf_idf))) +
+  geom_col() +
+  geom_text(aes(label = round(tf_idf, 2)))
+  labs(x = "tf-idf",
+       y = "words",
+       title = "Plots of tf-idf using Zipf's Law for the Year 2017")
+
+word_freq_2018_tf_idf <- word_freq_2018_rank %>%
+  bind_tf_idf(word, rank, n)
+word_freq_2018_tf_idf %>%
+  arrange(desc(tf_idf)) %>%
+  filter(n > 35) %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf))) +
+  geom_col() +
+  labs(x = "tf-idf",
+       y = "words",
+       title = "Plots of tf-idf using Zipf's Law for the Year 2018")
+
+word_freq_2019_tf_idf <- word_freq_2019_rank %>%
+  bind_tf_idf(word, rank, n)
+word_freq_2019_tf_idf %>%
+  arrange(desc(tf_idf)) %>%
+  filter(n > 45) %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf))) +
+  geom_col() +
+  labs(x = "tf-idf",
+       y = "words",
+       title = "Plots of tf-idf using Zipf's Law for the Year 2019")
+
+word_freq_2020_tf_idf <- word_freq_2020_rank %>%
+  bind_tf_idf(word, rank, n)
+word_freq_2020_tf_idf %>%
+  arrange(desc(tf_idf)) %>%
+  filter(n > 50) %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf))) +
+  geom_col() +
+  labs(x = "tf-idf",
+       y = "words",
+       title = "Plots of tf-idf using Zipf's Law for the Year 2020")
+
+word_freq_2021_tf_idf <- word_freq_2021_rank %>%
+  bind_tf_idf(word, rank, n)
+word_freq_2021_tf_idf %>%
+  arrange(desc(tf_idf)) %>%
+  filter(n > 10) %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf))) +
+  geom_col() +
+  labs(x = "tf-idf",
+       y = "words",
+       title = "Plots of tf-idf using Zipf's Law for the Year 2021")
+
+```
+
+## Bigram Network Graphs for Each Year
+
+A bigram is an n-gram with n = 2. It simply means 2-word sequences of words. Creating bigrams is helpful to understand the text more clearly as it carries more information about the context in general.
+
+Creating bigrams and visualizing their respective frequencies
+
+```{r Creating bigrams}
+
+# Creating bigrams
+tweets_2017_bigrams <- cleaned_tweet_2017 %>%
+  unnest_tokens(bigram, text_clean, token = "ngrams", n = 2) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  count(word1, word2, sort = TRUE)%>%
+  drop_na() %>%
+  slice(1:20)
+
+tweets_2018_bigrams <- cleaned_tweet_2018 %>%
+  unnest_tokens(bigram, text_clean, token = "ngrams", n = 2) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  count(word1, word2, sort = TRUE)%>%
+  drop_na() %>%
+  slice(1:20)
+
+tweets_2019_bigrams <- cleaned_tweet_2019 %>%
+  unnest_tokens(bigram, text_clean, token = "ngrams", n = 2) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  count(word1, word2, sort = TRUE)%>%
+  drop_na() %>%
+  slice(1:20)
+
+tweets_2020_bigrams <- cleaned_tweet_2020 %>%
+  unnest_tokens(bigram, text_clean, token = "ngrams", n = 2) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  count(word1, word2, sort = TRUE)%>%
+  drop_na() %>%
+  slice(1:20)
+
+tweets_2021_bigrams <- cleaned_tweet_2021 %>%
+  unnest_tokens(bigram, text_clean, token = "ngrams", n = 2) %>% 
+  separate(bigram, c("word1", "word2"), sep = " ") %>% 
+  count(word1, word2, sort = TRUE)%>%
+  drop_na() %>%
+  slice(1:20)
+
+# Visualizing bigram frequencies
+
+plot_bigram_2017 <- tweets_2017_bigrams %>%
+  unite(word, word1, word2, sep = " ") %>%
+  ggplot() +
+  geom_bar(aes(reorder(word, n), n), stat = "identity", fill = "darkblue") +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Top Bigrams of #ElonMusk tweets for Year 2017",
+       x = "Bigrams",
+       y = "Frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+#Year 2018
+plot_bigram_2018 <- tweets_2018_bigrams %>%
+  unite(word, word1, word2, sep = " ") %>%
+  ggplot() +
+  geom_bar(aes(reorder(word, n), n), stat = "identity", fill = "darkblue") +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Top Bigrams of #ElonMusk tweets for Year 2018",
+       x = "Bigrams",
+       y = "Frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+#Year 2019
+plot_bigram_2019 <- tweets_2019_bigrams %>%
+  unite(word, word1, word2, sep = " ") %>%
+  ggplot() +
+  geom_bar(aes(reorder(word, n), n), stat = "identity", fill = "darkblue") +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Top Bigrams of #ElonMusk tweets for Year 2019",
+       x = "Bigrams",
+       y = "Frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+#Year 2020
+plot_bigram_2020 <- tweets_2020_bigrams %>%
+  unite(word, word1, word2, sep = " ") %>%
+  ggplot() +
+  geom_bar(aes(reorder(word, n), n), stat = "identity", fill = "darkblue") +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Top Bigrams of #ElonMusk tweets for Year 2020",
+       x = "Bigrams",
+       y = "Frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+#Year 2021
+plot_bigram_2021 <- tweets_2021_bigrams %>%
+  unite(word, word1, word2, sep = " ") %>%
+  ggplot() +
+  geom_bar(aes(reorder(word, n), n), stat = "identity", fill = "darkblue") +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Top Bigrams of #ElonMusk tweets for Year 2021",
+       x = "Bigrams",
+       y = "Frequency") +
+  theme(plot.title = element_text(size = 8, face = "bold.italic", color = "red", hjust = 0.5),
+        axis.title.x = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.title.y = element_text(size = 7, face = "bold", color = "darkgreen"),
+        axis.text.x = element_text(size = 5),
+        axis.text.y = element_text(size = 5))
+
+grid.arrange(plot_bigram_2017, plot_bigram_2018, plot_bigram_2019, plot_bigram_2020, plot_bigram_2021,
+             nrow = 3,
+             ncol = 2)
+```
+
+## Visualizing bigrams
+
+```{r Visualizing bigrams}
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(tweets_2017_bigrams, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n),
+                 show.legend = FALSE,
+                 arrow = a,
+                 end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 3) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+ggraph(tweets_2018_bigrams, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n),
+                 show.legend = FALSE,
+                 arrow = a,
+                 end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 3) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+ggraph(tweets_2019_bigrams, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n),
+                 show.legend = FALSE,
+                 arrow = a,
+                 end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 3) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+ggraph(tweets_2020_bigrams, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n),
+                 show.legend = FALSE,
+                 arrow = a,
+                 end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 3) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+ggraph(tweets_2021_bigrams, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n),
+                 show.legend = FALSE,
+                 arrow = a,
+                 end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 3) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+```
+
